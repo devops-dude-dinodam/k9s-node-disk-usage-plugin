@@ -1,0 +1,14 @@
+plugins:
+  node-disk:
+    shortCut: x
+    description: View node disk usage (highlighted)
+    scopes:
+      - nodes
+    command: bash
+    background: false  # ← ✅ CRITICAL: Keep it false for now
+    args:
+      - -c
+      - |
+        ~/.config/k9s/plugins/node-disk.sh $NAME
+        read -p "Press enter to close"
+
