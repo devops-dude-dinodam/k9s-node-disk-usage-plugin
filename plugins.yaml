@@ -1,14 +1,27 @@
 plugins:
   node-disk:
     shortCut: x
-    description: View node disk usage (highlighted)
+    description: View node disk usage only
     scopes:
       - nodes
     command: bash
-    background: false  # ← ✅ CRITICAL: Keep it false for now
+    background: false
     args:
       - -c
       - |
         ~/.config/k9s/plugins/node-disk.sh $NAME
+        read -p "Press enter to close"
+
+  node-disk-pods:
+    shortCut: z
+    description: View node + top pod disk usage
+    scopes:
+      - nodes
+    command: bash
+    background: false
+    args:
+      - -c
+      - |
+        ~/.config/k9s/plugins/node-disk-pod.sh $NAME
         read -p "Press enter to close"
 
