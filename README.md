@@ -28,7 +28,7 @@ A custom plugin for [k9s](https://k9scli.io) that lets you:
 
 ```bash
 mkdir -p ~/.config/k9s/plugins
-git clone https://github.com/YOUR_ORG/k9s-node-disk-usage-plugin.git
+git clone https://github.com/devops-dude-dinodam/k9s-node-disk-usage-plugin.git
 cp k9s-node-disk-usage-plugin/plugins.yaml ~/.config/k9s/plugins.yaml
 cp k9s-node-disk-usage-plugin/node-disk.sh ~/.config/k9s/plugins/node-disk.sh
 chmod +x ~/.config/k9s/plugins/node-disk.sh
@@ -85,6 +85,6 @@ MIT License. See `LICENSE`.
 ## 🙌 Credits
 
 Originally developed by [@dinodam](https://github.com/dinodam)  
-Plugin logic + packaging assisted by ChatGPT  
+Packaging assisted by ChatGPT  
 2025
 
