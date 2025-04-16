@@ -25,3 +25,45 @@ plugins:
         ~/.config/k9s/plugins/node-disk-pod.sh $NAME
         read -p "Press enter to close"
 
+  ssmSSH:
+    shortCut: Shift-S
+    description: SSH into EC2 node via SSM (uses env vars)
+    scopes:
+      - nodes
+    command: bash
+    args:
+      - -c
+      - |-
+          CTX=$(kubectl config current-context | tr '[:upper:]' '[:lower:]')
+          echo "📦 Kube context: [$CTX]"
+
+          if [[ "$CTX" == *production* ]]; then
+            PROFILE="$AWS_PROD_PROFILE"
+          elif [[ "$CTX" == *qa* || "$CTX" == *dev* ]]; then
+            PROFILE="$AWS_QA_PROFILE"
+          else
+            echo "❌ Unknown context: $CTX"
+            exit 1
+          fi
+
+          REGION="${AWS_REGION:-eu-west-1}"
+          NODE="$NAME"
+
+          echo "🔧 Profile: $PROFILE"
+          echo "🌍 Region: $REGION"
+          echo "🖥️  Node: $NODE"
+
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --profile "$PROFILE" \
+            --region "$REGION" \
+            --filters "Name=private-dns-name,Values=$NODE" \
+            --query "Reservations[].Instances[].InstanceId" \
+            --output text)
+
+          if [[ -z "$INSTANCE_ID" ]]; then
+            echo "❌ Could not resolve EC2 instance for node: $NODE"
+            exit 1
+          fi
+
+          echo "✅ Found instance ID: $INSTANCE_ID"
+          aws ssm start-session --profile "$PROFILE" --region "$REGION" --target "$INSTANCE_ID"
