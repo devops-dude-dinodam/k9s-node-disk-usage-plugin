@@ -67,3 +67,110 @@ plugins:
 
           echo "✅ Found instance ID: $INSTANCE_ID"
           aws ssm start-session --profile "$PROFILE" --region "$REGION" --target "$INSTANCE_ID"
+  ssmCopyInteractive:
+    shortCut: Ctrl-F
+    description: Browse and copy files from node via SSM
+    scopes:
+      - nodes
+    command: bash
+    args:
+      - -c
+      - |-
+          CTX=$(kubectl config current-context | tr '[:upper:]' '[:lower:]')
+          echo "Kube context: [$CTX]"
+          if [[ "$CTX" == *production* ]]; then
+            PROFILE="$AWS_PROD_PROFILE"
+          elif [[ "$CTX" == *qa* || "$CTX" == *dev* ]]; then
+            PROFILE="$AWS_QA_PROFILE"
+          else
+            echo "Unknown context: $CTX"
+            exit 1
+          fi
+          REGION="${AWS_REGION:-eu-west-1}"
+          NODE="$NAME"
+          echo "Profile: $PROFILE"
+          echo "Region: $REGION"
+          echo "Node: $NODE"
+          
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --profile "$PROFILE" \
+            --region "$REGION" \
+            --filters "Name=private-dns-name,Values=$NODE" \
+            --query "Reservations[].Instances[].InstanceId" \
+            --output text)
+          
+          if [[ -z "$INSTANCE_ID" ]]; then
+            echo "Could not resolve EC2 instance for node: $NODE"
+            exit 1
+          fi
+          echo "Found instance ID: $INSTANCE_ID"
+          
+          read -e -p "Base path to browse [/var/lib/heap-dumps]: " BASEPATH
+          BASEPATH=${BASEPATH:-/var/lib/heap-dumps}
+          
+          echo "Listing files in $BASEPATH..."
+          
+          CMD_ID=$(aws ssm send-command \
+            --profile "$PROFILE" \
+            --region "$REGION" \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters commands="find $BASEPATH -type f -ls" \
+            --query 'Command.CommandId' \
+            --output text)
+          
+          echo "Waiting for file list..."
+          sleep 3
+          
+          FILE_LIST=$(aws ssm get-command-invocation \
+            --profile "$PROFILE" \
+            --region "$REGION" \
+            --command-id "$CMD_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --query 'StandardOutputContent' \
+            --output text)
+          
+          if [[ -z "$FILE_LIST" ]]; then
+            echo "No files found in $BASEPATH"
+            read -p "Press enter to continue..."
+            exit 0
+          fi
+          
+          SELECTED=$(echo "$FILE_LIST" | fzf --height 60% --reverse --header="Select file to download")
+          
+          if [[ -z "$SELECTED" ]]; then
+            echo "No file selected"
+            exit 0
+          fi
+          
+          FILEPATH=$(echo "$SELECTED" | awk '{print $NF}')
+          FILENAME=$(basename "$FILEPATH")
+          
+          read -e -p "Local destination [./]: " DEST
+          DEST=${DEST:-.}
+          
+          echo "Copying $FILENAME..."
+          
+          CMD_ID=$(aws ssm send-command \
+            --profile "$PROFILE" \
+            --region "$REGION" \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters commands="base64 $FILEPATH" \
+            --query 'Command.CommandId' \
+            --output text)
+          
+          echo "Waiting for transfer..."
+          sleep 3
+          
+          aws ssm get-command-invocation \
+            --profile "$PROFILE" \
+            --region "$REGION" \
+            --command-id "$CMD_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --query 'StandardOutputContent' \
+            --output text | base64 -d > "$DEST/$FILENAME"
+          
+          FILESIZE=$(stat -f%z "$DEST/$FILENAME" 2>/dev/null || stat -c%s "$DEST/$FILENAME" 2>/dev/null)
+          echo "Downloaded $FILENAME ($FILESIZE bytes) to $DEST/"
+          read -p "Press enter to continue..."
