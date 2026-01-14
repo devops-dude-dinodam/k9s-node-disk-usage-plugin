@@ -35,23 +35,23 @@ plugins:
       - -c
       - |-
           CTX=$(kubectl config current-context | tr '[:upper:]' '[:lower:]')
-          echo "📦 Kube context: [$CTX]"
+          echo "Kube context: [$CTX]"
 
           if [[ "$CTX" == *production* ]]; then
             PROFILE="$AWS_PROD_PROFILE"
           elif [[ "$CTX" == *qa* || "$CTX" == *dev* ]]; then
             PROFILE="$AWS_QA_PROFILE"
           else
-            echo "❌ Unknown context: $CTX"
+            echo "Unknown context: $CTX"
             exit 1
           fi
 
           REGION="${AWS_REGION:-eu-west-1}"
           NODE="$NAME"
 
-          echo "🔧 Profile: $PROFILE"
-          echo "🌍 Region: $REGION"
-          echo "🖥️  Node: $NODE"
+          echo "Profile: $PROFILE"
+          echo "Region: $REGION"
+          echo "Node: $NODE"
 
           INSTANCE_ID=$(aws ec2 describe-instances \
             --profile "$PROFILE" \
@@ -61,15 +61,15 @@ plugins:
             --output text)
 
           if [[ -z "$INSTANCE_ID" ]]; then
-            echo "❌ Could not resolve EC2 instance for node: $NODE"
+            echo "Could not resolve EC2 instance for node: $NODE"
             exit 1
           fi
 
-          echo "✅ Found instance ID: $INSTANCE_ID"
+          echo "Found instance ID: $INSTANCE_ID"
           aws ssm start-session --profile "$PROFILE" --region "$REGION" --target "$INSTANCE_ID"
   ssmCopyInteractive:
     shortCut: Ctrl-F
-    description: Browse and copy files from node via SSM
+    description: Copy files from node via SSM
     scopes:
       - nodes
     command: bash
